@@ -2,19 +2,102 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Intérprete de Voz</title>
+  <title>🌍 Intérprete Automático</title>
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 50px; }
-    input, button { padding: 10px; margin: 5px; }
-    #output { margin-top: 20px; font-size: 18px; color: #333; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #4f46e5, #3b82f6);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      color: #333;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      width: 400px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      color: #2563eb;
+    }
+
+    select, input, button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+
+    button {
+      background-color: #2563eb;
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background-color: #1e40af;
+    }
+
+    #chat {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+      height: 200px;
+      overflow-y: auto;
+      font-size: 15px;
+      text-align: left;
+    }
+
+    .msg {
+      margin: 6px 0;
+    }
+
+    .msg.user {
+      color: #2563eb;
+    }
+
+    .msg.bot {
+      color: #16a34a;
+    }
   </style>
 </head>
 <body>
-  <h2>🌍 Intérprete Automático</h2>
-  <input id="message" type="text" placeholder="Digite algo..." />
-  <button onclick="connect()">Conectar</button>
-  <button onclick="sendMessage()">Enviar</button>
-  <div id="output"></div>
+  <div class="container">
+    <h2>🌍 Intérprete Automático</h2>
+    <div>
+      <label for="lang">Traduzir para:</label>
+      <select id="lang">
+        <option value="en">Inglês</option>
+        <option value="es">Espanhol</option>
+        <option value="fr">Francês</option>
+        <option value="de">Alemão</option>
+        <option value="it">Italiano</option>
+        <option value="ja">Japonês</option>
+        <option value="pt">Português</option>
+      </select>
+    </div>
+    <div>
+      <input id="message" type="text" placeholder="Digite algo..." style="width: 70%" />
+      <button onclick="sendMessage()">Enviar</button>
+    </div>
+    <div id="chat"></div>
+    <div style="margin-top:10px">
+      <button onclick="connect()">🔗 Conectar</button>
+    </div>
+  </div>
 
   <script>
     let ws;
@@ -24,21 +107,31 @@
       const wsUrl = `${protocol}://${location.host}/ws`;
       ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => console.log("✅ Conectado ao servidor.");
-      ws.onmessage = (event) => {
-        document.getElementById("output").textContent = "Tradução: " + event.data;
-      };
-      ws.onerror = (err) => console.error("WebSocket error:", err);
-      ws.onclose = () => console.log("❌ Conexão fechada.");
+      ws.onopen = () => addMsg("✅ Conectado ao servidor.", "bot");
+      ws.onmessage = (event) => addMsg("Tradução: " + event.data, "bot");
+      ws.onerror = (err) => addMsg("⚠️ Erro de conexão", "bot");
+      ws.onclose = () => addMsg("❌ Conexão fechada.", "bot");
     }
 
     function sendMessage() {
       const msg = document.getElementById("message").value;
+      const lang = document.getElementById("lang").value;
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(msg);
+        ws.send(JSON.stringify({ text: msg, lang: lang }));
+        addMsg("Você: " + msg, "user");
+        document.getElementById("message").value = "";
       } else {
         alert("Conecte primeiro ao servidor!");
       }
+    }
+
+    function addMsg(text, who) {
+      const div = document.createElement("div");
+      div.classList.add("msg", who);
+      div.textContent = text;
+      document.getElementById("chat").appendChild(div);
+      const chat = document.getElementById("chat");
+      chat.scrollTop = chat.scrollHeight;
     }
   </script>
 </body>

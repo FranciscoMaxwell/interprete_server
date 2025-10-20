@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import os
+import json
 
 app = FastAPI()
 
@@ -22,9 +23,11 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            data = json.loads(data)
+            text = data["text"]
+            lang = data["lang"]
 
-            # Detectar idioma e traduzir
-            translated = GoogleTranslator(source='auto', target='en').translate(data)
+            translated = GoogleTranslator(source='auto', target=lang).translate(text)
 
             # Criar voz com gTTS
             tts = gTTS(translated)
