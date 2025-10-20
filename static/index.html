@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>🤖 Intérprete Global</title>
+<style>
+body { background: #1e1e1e; color: white; font-family: Arial; text-align: center; }
+textarea { width: 80%; height: 100px; background: #2e2e2e; color: white; border: none; padding: 10px; border-radius: 10px; }
+#chat { width: 80%; height: 300px; background: #2e2e2e; margin: 20px auto; padding: 10px; overflow-y: auto; border-radius: 10px; text-align: left; }
+button { background: #00cccc; color: black; padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; }
+button:hover { background: #00ffcc; }
+</style>
+</head>
+<body>
+<h1>🤖 Intérprete Global</h1>
+<p>Escolha seu idioma:</p>
+<select id="lang">
+  <option value="pt">Português</option>
+  <option value="en">Inglês</option>
+  <option value="es">Espanhol</option>
+  <option value="fr">Francês</option>
+</select>
+<br><br>
+<input type="text" id="name" placeholder="Seu nome" />
+<button onclick="connect()">Conectar</button>
+<div id="chat"></div>
+<textarea id="msg" placeholder="Digite sua mensagem..."></textarea><br>
+<button onclick="send()">Enviar</button>
+
+<script>
+let ws, idioma, nome;
+
+function connect() {
+    idioma = document.getElementById("lang").value;
+    nome = document.getElementById("name").value || "Usuário";
+
+    // Escolhe ws ou wss dependendo do protocolo
+    ws = new WebSocket("ws://toplofty-saylor-unexplorative.ngrok-free.dev/ws");
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ idioma, nome }));
+        document.getElementById("chat").innerHTML += "<p>✅ Conectado!</p>";
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const div = document.getElementById("chat");
+        div.innerHTML += `<p><b>${data.de}:</b> ${data.texto}</p>`;
+        speak(data.texto, data.idioma);
+    };
+
+    ws.onclose = () => {
+        document.getElementById("chat").innerHTML += "<p>❌ Conexão fechada</p>";
+    };
+
+    ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+    };
+}
+
+
+function send() {
+  const texto = document.getElementById("msg").value;
+  ws.send(JSON.stringify({ texto, idioma }));
+  document.getElementById("chat").innerHTML += `<p><b>Você:</b> ${texto}</p>`;
+  document.getElementById("msg").value = "";
+}
+
+function speak(text, lang) {
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  window.speechSynthesis.speak(utter);
+}
+</script>
+</body>
+</html>
