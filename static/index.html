@@ -35,7 +35,7 @@ function connect() {
     nome = document.getElementById("name").value || "Usuário";
 
     // Escolhe ws ou wss dependendo do protocolo
-    ws = new WebSocket("ws://toplofty-saylor-unexplorative.ngrok-free.dev/ws");
+    ws = new WebSocket("wss://interpreteserver-production.up.railway.app/ws");
 
     ws.onopen = () => {
         ws.send(JSON.stringify({ idioma, nome }));
