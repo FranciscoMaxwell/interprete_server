@@ -1,53 +1,42 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from gtts import gTTS
-import tempfile
 import os
 
 app = FastAPI()
+
+# Montar pasta de arquivos estáticos (HTML, etc)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-translator = Translator()
-connections = []
+@app.get("/")
+async def home():
+    return HTMLResponse(open("static/index.html", "r", encoding="utf-8").read())
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    connections.append(websocket)
+    print("🔗 Cliente conectado via WebSocket")
 
     try:
-        data = await websocket.receive_json()
-        idioma = data.get("idioma", "en")
-        nome = data.get("nome", "Usuário")
-        print(f"🌍 {nome} conectado, idioma: {idioma}")
-
         while True:
-            msg = await websocket.receive_json()
-            texto = msg["texto"]
-            src_lang = msg["idioma"]
+            data = await websocket.receive_text()
 
-            print(f"📩 {nome}: {texto}")
+            # Detectar idioma e traduzir
+            translated = GoogleTranslator(source='auto', target='en').translate(data)
 
-            # Traduz para todos os outros conectados
-            for conn in connections:
-                if conn != websocket:
-                    dest_lang = "pt" if src_lang != "pt" else "en"
-                    traducao = translator.translate(texto, src=src_lang, dest=dest_lang).text
+            # Criar voz com gTTS
+            tts = gTTS(translated)
+            audio_path = "audio.mp3"
+            tts.save(audio_path)
 
-                    # Gera áudio
-                    tts = gTTS(traducao, lang=dest_lang)
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-                        tts.save(f.name)
-                        audio_path = f.name
+            # Responder com texto traduzido
+            await websocket.send_text(translated)
+            print(f"Mensagem recebida: {data} → {translated}")
 
-                    await conn.send_json({
-                        "de": nome,
-                        "texto": traducao,
-                        "idioma": dest_lang,
-                        "audio": f"/static/{os.path.basename(audio_path)}"
-                    })
-
-    except WebSocketDisconnect:
-        print(f"❌ {nome} desconectado.")
-        connections.remove(websocket)
+    except Exception as e:
+        print(f"⚠️ Erro: {e}")
+    finally:
+        await websocket.close()
+        print("🔌 Cliente desconectado")

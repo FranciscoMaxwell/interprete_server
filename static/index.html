@@ -1,63 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Interpretador IA</title>
+  <meta charset="UTF-8" />
+  <title>Intérprete de Voz</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; }
+    input, button { padding: 10px; margin: 5px; }
+    #output { margin-top: 20px; font-size: 18px; color: #333; }
+  </style>
 </head>
 <body>
-<h1>Chat com Tradução e Voz</h1>
+  <h2>🌍 Intérprete Automático</h2>
+  <input id="message" type="text" placeholder="Digite algo..." />
+  <button onclick="connect()">Conectar</button>
+  <button onclick="sendMessage()">Enviar</button>
+  <div id="output"></div>
 
-<label>Nome: <input id="nome" value="Usuário"></label>
-<label>Idioma: 
-<select id="idioma">
-  <option value="pt">Português</option>
-  <option value="en">Inglês</option>
-</select>
-</label>
+  <script>
+    let ws;
 
-<button onclick="connect()">Conectar</button>
-<div id="chat"></div>
-<input id="msg" placeholder="Digite sua mensagem">
-<button onclick="sendMsg()">Enviar</button>
+    function connect() {
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${protocol}://${location.host}/ws`;
+      ws = new WebSocket(wsUrl);
 
-<script>
-let ws;
-let nome, idioma;
+      ws.onopen = () => console.log("✅ Conectado ao servidor.");
+      ws.onmessage = (event) => {
+        document.getElementById("output").textContent = "Tradução: " + event.data;
+      };
+      ws.onerror = (err) => console.error("WebSocket error:", err);
+      ws.onclose = () => console.log("❌ Conexão fechada.");
+    }
 
-function connect() {
-    nome = document.getElementById("nome").value;
-    idioma = document.getElementById("idioma").value;
-
-    ws = new WebSocket("wss://interpreteserver-production.up.railway.app/ws");
-
-    ws.onopen = () => {
-        console.log("Conectado!");
-        ws.send(JSON.stringify({nome, idioma}));
-    };
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        const chat = document.getElementById("chat");
-        const p = document.createElement("p");
-        p.textContent = `${data.de}: ${data.texto}`;
-        chat.appendChild(p);
-
-        // Reproduz áudio
-        if(data.audio){
-            const audio = new Audio(data.audio);
-            audio.play();
-        }
-    };
-
-    ws.onerror = (err) => {
-        console.error("WebSocket error:", err);
-    };
-}
-
-function sendMsg() {
-    const texto = document.getElementById("msg").value;
-    ws.send(JSON.stringify({texto, idioma}));
-}
-</script>
+    function sendMessage() {
+      const msg = document.getElementById("message").value;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(msg);
+      } else {
+        alert("Conecte primeiro ao servidor!");
+      }
+    }
+  </script>
 </body>
 </html>
