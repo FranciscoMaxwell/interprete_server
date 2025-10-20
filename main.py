@@ -3,13 +3,15 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from deep_translator import GoogleTranslator
 from gtts import gTTS
-import os
-import json
+import os, json, asyncio
 
 app = FastAPI()
 
-# Montar pasta de arquivos estáticos (HTML, etc)
+# Pasta de arquivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Lista global de conexões
+connections = []
 
 @app.get("/")
 async def home():
@@ -18,28 +20,37 @@ async def home():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("🔗 Cliente conectado via WebSocket")
+    connections.append(websocket)
+    print("🔗 Novo cliente conectado.")
 
     try:
         while True:
             data = await websocket.receive_text()
-            data = json.loads(data)
-            text = data["text"]
-            lang = data["lang"]
+            message = json.loads(data)
+            text = message["text"]
+            lang = message["lang"]
 
-            translated = GoogleTranslator(source='auto', target=lang).translate(text)
+            print(f"🗣️ Mensagem recebida: {text} → {lang}")
 
-            # Criar voz com gTTS
-            tts = gTTS(translated)
-            audio_path = "audio.mp3"
-            tts.save(audio_path)
+            # Traduz automaticamente
+            translated = GoogleTranslator(source="auto", target=lang).translate(text)
 
-            # Responder com texto traduzido
-            await websocket.send_text(translated)
-            print(f"Mensagem recebida: {data} → {translated}")
+            # Cria áudio com gTTS
+            audio_file = f"static/audio_{id(websocket)}.mp3"
+            tts = gTTS(translated, lang=lang)
+            tts.save(audio_file)
+
+            # Envia para todos os outros clientes conectados
+            for conn in connections:
+                if conn != websocket:
+                    await conn.send_json({
+                        "translated": translated,
+                        "audio": f"/{audio_file}"
+                    })
 
     except Exception as e:
         print(f"⚠️ Erro: {e}")
     finally:
+        connections.remove(websocket)
         await websocket.close()
-        print("🔌 Cliente desconectado")
+        print("❌ Cliente desconectado")

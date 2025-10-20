@@ -61,17 +61,9 @@
       text-align: left;
     }
 
-    .msg {
-      margin: 6px 0;
-    }
-
-    .msg.user {
-      color: #2563eb;
-    }
-
-    .msg.bot {
-      color: #16a34a;
-    }
+    .msg { margin: 6px 0; }
+    .msg.user { color: #2563eb; }
+    .msg.bot { color: #16a34a; }
   </style>
 </head>
 <body>
@@ -89,14 +81,18 @@
         <option value="pt">Português</option>
       </select>
     </div>
+
     <div>
       <input id="message" type="text" placeholder="Digite algo..." style="width: 70%" />
       <button onclick="sendMessage()">Enviar</button>
     </div>
-    <div id="chat"></div>
-    <div style="margin-top:10px">
+
+    <div style="margin-top:8px">
+      <button onclick="startListening()">🎤 Falar</button>
       <button onclick="connect()">🔗 Conectar</button>
     </div>
+
+    <div id="chat"></div>
   </div>
 
   <script>
@@ -108,14 +104,22 @@
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => addMsg("✅ Conectado ao servidor.", "bot");
-      ws.onmessage = (event) => addMsg("Tradução: " + event.data, "bot");
-      ws.onerror = (err) => addMsg("⚠️ Erro de conexão", "bot");
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        addMsg("🗣️ Tradução: " + data.translated, "bot");
+
+        // Reproduz áudio automaticamente
+        const audio = new Audio(data.audio);
+        audio.play();
+      };
+      ws.onerror = () => addMsg("⚠️ Erro de conexão", "bot");
       ws.onclose = () => addMsg("❌ Conexão fechada.", "bot");
     }
 
     function sendMessage() {
       const msg = document.getElementById("message").value;
       const lang = document.getElementById("lang").value;
+
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ text: msg, lang: lang }));
         addMsg("Você: " + msg, "user");
@@ -123,6 +127,21 @@
       } else {
         alert("Conecte primeiro ao servidor!");
       }
+    }
+
+    // Captura de voz (Web Speech API)
+    function startListening() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "pt-BR"; // idioma de fala local
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById("message").value = transcript;
+        sendMessage();
+      };
+
+      recognition.onerror = () => alert("Erro ao capturar voz ou microfone bloqueado.");
     }
 
     function addMsg(text, who) {
