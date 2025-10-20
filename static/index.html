@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>🌍 Intérprete Automático</title>
+  <title>🌍 Intérprete Automático — Bilingue</title>
   <style>
     body {
       font-family: "Segoe UI", Arial, sans-serif;
@@ -14,126 +14,124 @@
       height: 100vh;
       margin: 0;
     }
-
     .container {
       background: white;
       color: #333;
       padding: 25px;
       border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-      width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      width: 420px;
       text-align: center;
     }
-
-    h2 {
-      margin-bottom: 10px;
-      color: #2563eb;
-    }
-
-    select, input, button {
-      padding: 10px;
-      margin: 5px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 15px;
-    }
-
-    button {
-      background-color: #2563eb;
-      color: white;
-      cursor: pointer;
-      border: none;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background-color: #1e40af;
-    }
-
-    #chat {
-      background: #f9fafb;
-      border-radius: 10px;
-      padding: 10px;
-      margin-top: 10px;
-      height: 200px;
-      overflow-y: auto;
-      font-size: 15px;
-      text-align: left;
-    }
-
-    .msg { margin: 6px 0; }
-    .msg.user { color: #2563eb; }
-    .msg.bot { color: #16a34a; }
+    h2 { margin-bottom: 10px; color: #2563eb; }
+    select, input, button { padding: 10px; margin: 5px; border-radius:8px; border:1px solid #ccc; font-size:15px;}
+    button { background:#2563eb; color:white; cursor:pointer; border:none; transition:0.15s;}
+    button:hover { background:#1e40af; }
+    #chat { background:#f9fafb; border-radius:10px; padding:10px; margin-top:10px; height:240px; overflow-y:auto; font-size:15px; text-align:left;}
+    .msg { margin:6px 0; padding:6px 8px; border-radius:8px; display:inline-block; max-width:90%; }
+    .msg.me { background:#e0f2fe; color:#0369a1; align-self:flex-end; }
+    .msg.other { background:#ecfccb; color:#365314; }
+    .system { color: #6b7280; font-size:13px; margin-top:6px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>🌍 Intérprete Automático</h2>
-    <div>
-      <label for="lang">Traduzir para:</label>
-      <select id="lang">
+
+    <div style="margin-bottom:6px">
+      <label for="myLang">Meu idioma (o que eu entendo):</label>
+      <select id="myLang">
+        <option value="pt">Português</option>
         <option value="en">Inglês</option>
         <option value="es">Espanhol</option>
         <option value="fr">Francês</option>
         <option value="de">Alemão</option>
         <option value="it">Italiano</option>
         <option value="ja">Japonês</option>
-        <option value="pt">Português</option>
       </select>
     </div>
 
     <div>
-      <input id="message" type="text" placeholder="Digite algo..." style="width: 70%" />
+      <input id="message" type="text" placeholder="Digite algo..." style="width:70%" />
       <button onclick="sendMessage()">Enviar</button>
     </div>
 
     <div style="margin-top:8px">
       <button onclick="startListening()">🎤 Falar</button>
-      <button onclick="connect()">🔗 Conectar</button>
+      <button id="btnConnect" onclick="connect()">🔗 Conectar</button>
     </div>
 
     <div id="chat"></div>
+    <div id="system" class="system"></div>
   </div>
 
   <script>
     let ws;
+    let myLang;
 
     function connect() {
+      myLang = document.getElementById("myLang").value;
       const protocol = location.protocol === "https:" ? "wss" : "ws";
       const wsUrl = `${protocol}://${location.host}/ws`;
       ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => addMsg("✅ Conectado ao servidor.", "bot");
+      ws.onopen = () => {
+        // Registrar idioma assim que conectar
+        ws.send(JSON.stringify({ type: "register", lang: myLang }));
+        addSystem("Conectado. Idioma registrado: " + myLang);
+        document.getElementById("btnConnect").disabled = true;
+      };
+
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        addMsg("🗣️ Tradução: " + data.translated, "bot");
 
-        // Reproduz áudio automaticamente
-        const audio = new Audio(data.audio);
-        audio.play();
+        if (data.type === "system") {
+          addSystem("Sistema: " + (data.msg || ""));
+          return;
+        }
+
+        if (data.type === "translation") {
+          // Mostra o texto traduzido (no idioma do receptor)
+          addMessage(`${data.translated}  (de: ${data.from_lang})`, "other");
+
+          // Também mostra o original (opcional)
+          addMessage(`orig: ${data.original}`, "other");
+
+          // Reproduz o áudio se existir
+          if (data.audio) {
+            const audio = new Audio(data.audio);
+            audio.play().catch(err => console.warn("Erro ao tocar áudio:", err));
+          }
+        }
       };
-      ws.onerror = () => addMsg("⚠️ Erro de conexão", "bot");
-      ws.onclose = () => addMsg("❌ Conexão fechada.", "bot");
+
+      ws.onerror = (err) => addSystem("Erro de conexão: " + err);
+      ws.onclose = () => {
+        addSystem("Conexão fechada.");
+        document.getElementById("btnConnect").disabled = false;
+      };
     }
 
     function sendMessage() {
-      const msg = document.getElementById("message").value;
-      const lang = document.getElementById("lang").value;
+      const msg = document.getElementById("message").value.trim();
+      if (!msg) return;
 
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ text: msg, lang: lang }));
-        addMsg("Você: " + msg, "user");
+        ws.send(JSON.stringify({ type: "message", text: msg }));
+        addMessage("Você: " + msg, "me");
         document.getElementById("message").value = "";
       } else {
         alert("Conecte primeiro ao servidor!");
       }
     }
 
-    // Captura de voz (Web Speech API)
+    // Captura de voz (Web Speech API) — fala na língua que o usuário declarou
     function startListening() {
+      myLang = document.getElementById("myLang").value || "pt";
       const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = "pt-BR"; // idioma de fala local
+      recognition.lang = mapToSpeechLang(myLang); // ajustar formato
       recognition.start();
+      addSystem("Ouvindo... fale agora.");
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -141,16 +139,31 @@
         sendMessage();
       };
 
-      recognition.onerror = () => alert("Erro ao capturar voz ou microfone bloqueado.");
+      recognition.onerror = (e) => {
+        addSystem("Erro de reconhecimento de voz.");
+        console.error(e);
+      };
     }
 
-    function addMsg(text, who) {
+    // Mapear códigos simples (pt -> pt-BR, en -> en-US, etc.)
+    function mapToSpeechLang(code) {
+      const map = { pt: "pt-BR", en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", it: "it-IT", ja: "ja-JP" };
+      return map[code] || code;
+    }
+
+    function addMessage(text, who) {
       const div = document.createElement("div");
-      div.classList.add("msg", who);
+      div.classList.add("msg", who === "me" ? "me" : "other");
       div.textContent = text;
       document.getElementById("chat").appendChild(div);
       const chat = document.getElementById("chat");
       chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addSystem(text) {
+      const el = document.getElementById("system");
+      el.textContent = text;
+      setTimeout(()=> { el.textContent = ""; }, 6000);
     }
   </script>
 </body>
